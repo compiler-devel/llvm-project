@@ -296,10 +296,6 @@ Retry:
   case tok::kw_for:                 // C99 6.8.5.3: for-statement
     return ParseForStatement(TrailingElseLoc);
 
-  case tok::kw_goto:                // C99 6.8.6.1: goto-statement
-    Res = ParseGotoStatement();
-    SemiError = "goto";
-    break;
   case tok::kw_continue:            // C99 6.8.6.2: continue-statement
     Res = ParseContinueStatement();
     SemiError = "continue";
@@ -811,6 +807,10 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
     ColonProtection.restore();
 
     if (TryConsumeToken(tok::colon, ColonLoc)) {
+      if (!Tok.is(tok::l_brace)) {
+        Diag(CaseLoc, diag::err_case_statements_require_braces);
+        return StmtError();
+      }
     } else if (TryConsumeToken(tok::semi, ColonLoc) ||
                TryConsumeToken(tok::coloncolon, ColonLoc)) {
       // Treat "case blah;" or "case blah::" as a typo for "case blah:".
@@ -893,6 +893,10 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
 
   SourceLocation ColonLoc;
   if (TryConsumeToken(tok::colon, ColonLoc)) {
+    if (!Tok.is(tok::l_brace)) {
+      Diag(DefaultLoc, diag::err_case_statements_require_braces);
+      return StmtError();
+    }
   } else if (TryConsumeToken(tok::semi, ColonLoc)) {
     // Treat "default;" as a typo for "default:".
     Diag(ColonLoc, diag::err_expected_after)
@@ -1479,6 +1483,11 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   }
 
   bool IsBracedThen = Tok.is(tok::l_brace);
+  if (!IsBracedThen) {
+    // Error as we're requiring braces for all conditional statements.
+    Diag(Tok.getLocation(), diag::err_conditional_braces_required);
+    return StmtError();
+  }
 
   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
@@ -1539,6 +1548,13 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
 
     ElseLoc = ConsumeToken();
     ElseStmtLoc = Tok.getLocation();
+
+    bool IsBracedElse = Tok.is(tok::l_brace);
+    if (!IsBracedElse) {
+      // Error as we're requiring braces for all conditional statements.
+      Diag(Tok.getLocation(), diag::err_conditional_braces_required);
+      return StmtError();
+    }
 
     // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
     // there is no compound stmt.  C90 does not have this clause.  We only do
@@ -1761,6 +1777,13 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
                                 /*MissingOK=*/false, &LParen, &RParen))
     return StmtError();
 
+  const bool IsBraced = Tok.is(tok::l_brace);
+  if (!IsBraced) {
+    // Error as we're requiring braces for all conditional statements.
+    Diag(Tok.getLocation(), diag::err_conditional_braces_required);
+    return StmtError();
+  }
+
   // C99 6.8.5p5 - In C99, the body of the while statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
   // if the body isn't a compound statement to avoid push/pop in common cases.
@@ -1808,6 +1831,13 @@ StmtResult Parser::ParseDoStatement() {
     ScopeFlags = Scope::BreakScope | Scope::ContinueScope;
 
   ParseScope DoScope(this, ScopeFlags);
+
+  const bool IsBraced = Tok.is(tok::l_brace);
+  if (!IsBraced) {
+    // Error as we're requiring braces for all conditional statements.
+    Diag(Tok.getLocation(), diag::err_conditional_braces_required);
+    return StmtError();
+  }
 
   // C99 6.8.5p5 - In C99, the body of the do statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause. We only do this
@@ -2267,41 +2297,6 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   return Actions.ActOnForStmt(ForLoc, T.getOpenLocation(), FirstPart.get(),
                               SecondPart, ThirdPart, T.getCloseLocation(),
                               Body.get());
-}
-
-/// ParseGotoStatement
-///       jump-statement:
-///         'goto' identifier ';'
-/// [GNU]   'goto' '*' expression ';'
-///
-/// Note: this lets the caller parse the end ';'.
-///
-StmtResult Parser::ParseGotoStatement() {
-  assert(Tok.is(tok::kw_goto) && "Not a goto stmt!");
-  SourceLocation GotoLoc = ConsumeToken();  // eat the 'goto'.
-
-  StmtResult Res;
-  if (Tok.is(tok::identifier)) {
-    LabelDecl *LD = Actions.LookupOrCreateLabel(Tok.getIdentifierInfo(),
-                                                Tok.getLocation());
-    Res = Actions.ActOnGotoStmt(GotoLoc, Tok.getLocation(), LD);
-    ConsumeToken();
-  } else if (Tok.is(tok::star)) {
-    // GNU indirect goto extension.
-    Diag(Tok, diag::ext_gnu_indirect_goto);
-    SourceLocation StarLoc = ConsumeToken();
-    ExprResult R(ParseExpression());
-    if (R.isInvalid()) {  // Skip to the semicolon, but don't consume it.
-      SkipUntil(tok::semi, StopBeforeMatch);
-      return StmtError();
-    }
-    Res = Actions.ActOnIndirectGotoStmt(GotoLoc, StarLoc, R.get());
-  } else {
-    Diag(Tok, diag::err_expected) << tok::identifier;
-    return StmtError();
-  }
-
-  return Res;
 }
 
 /// ParseContinueStatement

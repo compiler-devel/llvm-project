@@ -600,4 +600,6 @@ def warn_unnecessary_packed : Warning<
 def warn_unaligned_access : Warning<
   "field %1 within %0 is less aligned than %2 and is usually due to %0 being "
   "packed, which can lead to unaligned accesses">, InGroup<UnalignedAccess>, DefaultIgnore;
+
+def implicit_cast_to_bool_disabled : Error<"implicit cast to bool disabled">;
 }

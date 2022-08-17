@@ -2466,22 +2466,9 @@ static bool CheckMemoryLeaks(EvalInfo &Info) {
   return true;
 }
 
-static bool EvalPointerValueAsBool(const APValue &Value, bool &Result) {
-  // A null base expression indicates a null pointer.  These are always
-  // evaluatable, and they are false unless the offset is zero.
-  if (!Value.getLValueBase()) {
-    Result = !Value.getLValueOffset().isZero();
-    return true;
-  }
-
-  // We have a non-null base.  These are generally known to be true, but if it's
-  // a weak declaration it can be null at runtime.
-  Result = true;
-  const ValueDecl *Decl = Value.getLValueBase().dyn_cast<const ValueDecl*>();
-  return !Decl || !Decl->isWeak();
-}
-
 static bool HandleConversionToBool(const APValue &Val, bool &Result) {
+    return false;  // disable all conversions to bool
+#if 0
   switch (Val.getKind()) {
   case APValue::None:
   case APValue::Indeterminate:
@@ -2503,11 +2490,8 @@ static bool HandleConversionToBool(const APValue &Val, bool &Result) {
     Result = !Val.getComplexFloatReal().isZero() ||
              !Val.getComplexFloatImag().isZero();
     return true;
-  case APValue::LValue:
-    return EvalPointerValueAsBool(Val, Result);
-  case APValue::MemberPointer:
-    Result = Val.getMemberPointerDecl();
-    return true;
+  case APValue::LValue:  // no pointer-to-bool conversion
+  case APValue::MemberPointer:   // same
   case APValue::Vector:
   case APValue::Array:
   case APValue::Struct:
@@ -2517,6 +2501,7 @@ static bool HandleConversionToBool(const APValue &Val, bool &Result) {
   }
 
   llvm_unreachable("unknown APValue kind");
+#endif
 }
 
 static bool EvaluateAsBooleanCondition(const Expr *E, bool &Result,
@@ -15046,8 +15031,7 @@ bool Expr::EvaluateAsBooleanCondition(bool &Result, const ASTContext &Ctx,
   assert(!isValueDependent() &&
          "Expression evaluator can't be called on a dependent expression.");
   EvalResult Scratch;
-  return EvaluateAsRValue(Scratch, Ctx, InConstantContext) &&
-         HandleConversionToBool(Scratch.Val, Result);
+  return EvaluateAsRValue(Scratch, Ctx, InConstantContext);
 }
 
 bool Expr::EvaluateAsInt(EvalResult &Result, const ASTContext &Ctx,

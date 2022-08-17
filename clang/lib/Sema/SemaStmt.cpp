@@ -43,6 +43,31 @@
 using namespace clang;
 using namespace sema;
 
+namespace {
+
+void DisallowImplicitCasts(Expr* Cond, Sema* SemaPtr)
+{
+  auto Cast = dyn_cast<ImplicitCastExpr>(Cond);
+
+  if (Cast == nullptr) {
+      return;
+  }
+
+  if (Cast->getCastKind() != CastKind::CK_MemberPointerToBoolean
+    && Cast->getCastKind() != CastKind::CK_PointerToBoolean
+    && Cast->getCastKind() != CastKind::CK_IntegralToBoolean
+    && Cast->getCastKind() != CastKind::CK_FixedPointToBoolean
+    && Cast->getCastKind() != CastKind::CK_FloatingToBoolean
+    && Cast->getCastKind() != CastKind::CK_FloatingComplexToBoolean
+    && Cast->getCastKind() != CastKind::CK_IntegralComplexToBoolean) {
+      return;
+  }
+
+  SemaPtr->Diag(Cond->getExprLoc(), diag::implicit_cast_to_bool_disabled);
+}
+
+} // namespace
+
 StmtResult Sema::ActOnExprStmt(ExprResult FE, bool DiscardedValue) {
   if (FE.isInvalid())
     return StmtError();
@@ -960,9 +985,11 @@ StmtResult Sema::BuildIfStmt(SourceLocation IfLoc,
       isa<ObjCAvailabilityCheckExpr>(Cond.get().second))
     setFunctionHasBranchProtectedScope();
 
-  return IfStmt::Create(Context, IfLoc, StatementKind, InitStmt,
+  auto* IfStatement = IfStmt::Create(Context, IfLoc, StatementKind, InitStmt,
                         Cond.get().first, Cond.get().second, LParenLoc,
                         RParenLoc, thenStmt, ElseLoc, elseStmt);
+  DisallowImplicitCasts(IfStatement->getCond(), this);
+  return IfStatement;
 }
 
 namespace {
@@ -1697,8 +1724,10 @@ StmtResult Sema::ActOnWhileStmt(SourceLocation WhileLoc,
   if (isa<NullStmt>(Body))
     getCurCompoundScope().setHasEmptyLoopBodies();
 
-  return WhileStmt::Create(Context, CondVal.first, CondVal.second, Body,
+  auto* WhileStatement = WhileStmt::Create(Context, CondVal.first, CondVal.second, Body,
                            WhileLoc, LParenLoc, RParenLoc);
+  DisallowImplicitCasts(WhileStatement->getCond(), this);
+  return WhileStatement;
 }
 
 StmtResult
@@ -1723,6 +1752,7 @@ Sema::ActOnDoStmt(SourceLocation DoLoc, Stmt *Body,
       !Diags.isIgnored(diag::warn_comma_operator, Cond->getExprLoc()))
     CommaVisitor(*this).Visit(Cond);
 
+  DisallowImplicitCasts(Cond, this);
   return new (Context) DoStmt(Body, Cond, DoLoc, WhileLoc, CondRParen);
 }
 

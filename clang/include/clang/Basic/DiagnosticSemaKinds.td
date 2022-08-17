@@ -11649,4 +11649,10 @@ def err_non_designated_init_used : Error<
   "a randomized struct can only be initialized with a designated initializer">;
 def err_cast_from_randomized_struct : Error<
   "casting from randomized structure pointer type %0 to %1">;
+
+def err_rule_of_six : Error<
+  "User-provided default constructor, copy constructor, move constructor, copy assignment, move assignment, and destructor required">;
+def err_c_style_casts_prohibited : Error<
+  "C-style casts prohibited">;
+
 } // end of sema component.

@@ -3245,8 +3245,11 @@ ExprResult Sema::BuildCStyleCastExpr(SourceLocation LPLoc,
   Op.OpRange = SourceRange(LPLoc, CastExpr->getEndLoc());
 
   if (getLangOpts().CPlusPlus) {
+    Diag(CastExpr->getExprLoc(), diag::err_c_style_casts_prohibited);
+#if 0
     Op.CheckCXXCStyleCast(/*FunctionalCast=*/ false,
                           isa<InitListExpr>(CastExpr));
+#endif
   } else {
     Op.CheckCStyleCast();
   }

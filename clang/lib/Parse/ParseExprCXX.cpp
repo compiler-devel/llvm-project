@@ -855,21 +855,11 @@ bool Parser::ParseLambdaIntroducer(LambdaIntroducer &Intro,
   };
 
   // Parse capture-default.
-  if (Tok.is(tok::amp) &&
+  if (Tok.isOneOf(tok::amp, tok::equal) &&
       (NextToken().is(tok::comma) || NextToken().is(tok::r_square))) {
-    Intro.Default = LCD_ByRef;
-    Intro.DefaultLoc = ConsumeToken();
-    First = false;
-    if (!Tok.getIdentifierInfo()) {
-      // This can only be a lambda; no need for tentative parsing any more.
-      // '[[and]]' can still be an attribute, though.
-      Tentative = nullptr;
-    }
-  } else if (Tok.is(tok::equal)) {
-    Intro.Default = LCD_ByCopy;
-    Intro.DefaultLoc = ConsumeToken();
-    First = false;
-    Tentative = nullptr;
+    return Invalid([&] {
+      Diag(Tok.getLocation(), diag::err_default_capture_disallowed);
+    });
   }
 
   while (Tok.isNot(tok::r_square)) {

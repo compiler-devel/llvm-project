@@ -3102,6 +3102,27 @@ static void SetupFixedPointError(const LangOptions &LangOpts,
   isInvalid = true;
 }
 
+namespace {
+
+void SetTypeSpecTypeAndQual(bool& isInvalid,
+                            unsigned int& markBasicTypeDeclConst,
+                            const LangOptions& langOpts,
+                            DeclSpec& DS,
+                            DeclSpec::TST typespec,
+                            SourceLocation Loc,
+                            const char* PrevSpec,
+                            unsigned DiagID,
+                            PrintingPolicy& Policy)
+{
+  isInvalid = DS.SetTypeSpecType(typespec, Loc, PrevSpec, DiagID, Policy);
+  if (markBasicTypeDeclConst == 0) {
+      isInvalid = DS.SetTypeQual(DeclSpec::TQ_const, Loc, PrevSpec, DiagID,
+                                 langOpts);
+  }
+}
+
+}
+
 /// ParseDeclarationSpecifiers
 ///       declaration-specifiers: [C99 6.7]
 ///         storage-class-specifier declaration-specifiers[opt]
@@ -3148,7 +3169,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
   ParsedAttributes attrs(AttrFactory);
   // We use Sema's policy to get bool macros right.
   PrintingPolicy Policy = Actions.getPrintingPolicy();
+  unsigned int markBasicTypeDeclConst = 0;
   while (true) {
+    if (markBasicTypeDeclConst > 0) {
+        --markBasicTypeDeclConst;
+    }
+
     bool isInvalid = false;
     bool isStorageClass = false;
     const char *PrevSpec = nullptr;
@@ -3797,8 +3823,9 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
             Diag(Tok, diag::ext_auto_storage_class)
               << FixItHint::CreateRemoval(DS.getStorageClassSpecLoc());
         } else
-          isInvalid = DS.SetTypeSpecType(DeclSpec::TST_auto, Loc, PrevSpec,
-                                         DiagID, Policy);
+            SetTypeSpecTypeAndQual(isInvalid, markBasicTypeDeclConst, getLangOpts(),
+                                   DS, DeclSpec::TST_auto, Loc, PrevSpec,
+                                   DiagID, Policy);
       } else
         isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_auto, Loc,
                                            PrevSpec, DiagID, Policy);
@@ -3815,9 +3842,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isStorageClass = true;
       break;
     case tok::kw_mutable:
-      isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_mutable, Loc,
-                                         PrevSpec, DiagID, Policy);
-      isStorageClass = true;
+      if (DSContext == DeclSpecContext::DSC_class) {
+        isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_mutable, Loc,
+                                           PrevSpec, DiagID, Policy);
+        isStorageClass = true;
+      }
+      markBasicTypeDeclConst = 2;
       break;
     case tok::kw___thread:
       isInvalid = DS.SetStorageClassSpecThread(DeclSpec::TSCS___thread, Loc,
@@ -3967,17 +3997,18 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
                                         DiagID);
       break;
     case tok::kw_void:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_void, Loc, PrevSpec,
-                                     DiagID, Policy);
+      SetTypeSpecTypeAndQual(isInvalid, markBasicTypeDeclConst, getLangOpts(), DS, DeclSpec::TST_void, Loc, PrevSpec,
+                             DiagID, Policy);
       break;
     case tok::kw_char:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_char, Loc, PrevSpec,
-                                     DiagID, Policy);
+      SetTypeSpecTypeAndQual(isInvalid, markBasicTypeDeclConst, getLangOpts(), DS, DeclSpec::TST_char, Loc, PrevSpec,
+                             DiagID, Policy);
       break;
     case tok::kw_int:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_int, Loc, PrevSpec,
-                                     DiagID, Policy);
+      SetTypeSpecTypeAndQual(isInvalid, markBasicTypeDeclConst, getLangOpts(), DS, DeclSpec::TST_int, Loc, PrevSpec,
+                             DiagID, Policy);
       break;
+
     case tok::kw__ExtInt:
     case tok::kw__BitInt: {
       DiagnoseBitIntUse(Tok);
@@ -4001,12 +4032,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
                                      DiagID, Policy);
       break;
     case tok::kw_float:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float, Loc, PrevSpec,
-                                     DiagID, Policy);
+      SetTypeSpecTypeAndQual(isInvalid, markBasicTypeDeclConst, getLangOpts(), DS, DeclSpec::TST_float, Loc, PrevSpec,
+                             DiagID, Policy);
       break;
     case tok::kw_double:
-      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
-                                     DiagID, Policy);
+      SetTypeSpecTypeAndQual(isInvalid, markBasicTypeDeclConst, getLangOpts(), DS, DeclSpec::TST_double, Loc, PrevSpec,
+                             DiagID, Policy);
       break;
     case tok::kw__Float16:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float16, Loc, PrevSpec,

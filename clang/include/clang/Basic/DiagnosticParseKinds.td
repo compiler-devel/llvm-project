@@ -539,7 +539,7 @@ def err_invalid_operator_on_type : Error<
 def err_expected_unqualified_id : Error<
   "expected %select{identifier|unqualified-id}0">;
 def err_while_loop_outside_of_a_function : Error<
-  "while loop outside of a function">; 
+  "while loop outside of a function">;
 def err_brackets_go_after_unqualified_id : Error<
   "brackets are not allowed here; to declare an array, "
   "place the brackets after the %select{identifier|name}0">;
@@ -976,6 +976,8 @@ def err_sizeof_parameter_pack : Error<
   "expected parenthesized parameter pack name in 'sizeof...' expression">;
 
 // C++11 lambda expressions
+def err_default_capture_disallowed : Error<
+  "'&' or '=' alone not allowed for lambda captures">;
 def err_expected_comma_or_rsquare : Error<
   "expected ',' or ']' in lambda capture list">;
 def err_this_captured_by_reference : Error<
@@ -1609,5 +1611,11 @@ def err_unknown_hlsl_semantic : Error<"unknown HLSL semantic %0">;
 def ext_hlsl_access_specifiers : ExtWarn<
   "access specifiers are a clang HLSL extension">,
   InGroup<HLSLExtension>;
+
+def err_conditional_braces_required : Error<
+  "braces required for conditional statements">;
+
+def err_case_statements_require_braces : Error<
+  "braces required for case statements">;
 
 } // end of Parser diagnostics

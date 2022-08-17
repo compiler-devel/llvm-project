@@ -6778,6 +6778,16 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     }
   }
 
+  if (!Record->isLambda() &&
+    (!Record->hasUserProvidedDefaultConstructor()
+     || !Record->hasUserDeclaredCopyConstructor()
+     || !Record->hasUserDeclaredMoveConstructor()
+     || !Record->hasUserDeclaredCopyAssignment()
+     || !Record->hasUserDeclaredMoveAssignment()
+     || !Record->hasUserDeclaredDestructor())) {
+    Diag(Record->getLocation(), diag::err_rule_of_six);
+  }
+
   if (Record->getIdentifier()) {
     // C++ [class.mem]p13:
     //   If T is the name of a class, then each of the following shall have a
